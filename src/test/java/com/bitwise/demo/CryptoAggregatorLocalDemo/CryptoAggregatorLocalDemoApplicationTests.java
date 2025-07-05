@@ -1,0 +1,13 @@
+package com.bitwise.demo.CryptoAggregatorLocalDemo;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class CryptoAggregatorLocalDemoApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}

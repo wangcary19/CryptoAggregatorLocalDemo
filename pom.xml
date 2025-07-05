@@ -8,6 +8,7 @@
 		<version>3.5.3</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
+
 	<groupId>com.bitwise.demo</groupId>
 	<artifactId>CryptoAggregatorLocalDemo</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
@@ -29,6 +30,8 @@
 	<properties>
 		<java.version>21</java.version>
 	</properties>
+
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

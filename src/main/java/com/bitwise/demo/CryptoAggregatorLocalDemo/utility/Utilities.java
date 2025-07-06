@@ -4,12 +4,10 @@ import com.bitwise.demo.CryptoAggregatorLocalDemo.handler.CryptoAggregatorExcept
 import com.bitwise.demo.CryptoAggregatorLocalDemo.pojo.Asset;
 import com.bitwise.demo.CryptoAggregatorLocalDemo.pojo.CoinInfo;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.annotation.CachePut;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -81,19 +79,27 @@ public class Utilities {
     }
 
     /**
-     * Validates that a given date string is in dd-mm-yyyy format and not in the future.
+     * Validates that a given date string is in dd-mm-yyyy format, not in the future,
+     * and not more than one year in the past.
      *
      * @param dateStr The date string to validate
-     * @throws CryptoAggregatorException if date is invalid or in future
+     * @throws CryptoAggregatorException if date is invalid, in future, or more than a year in the past
      */
     public boolean isValidDate(String dateStr) throws CryptoAggregatorException {
         try {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
             LocalDate parsedDate = LocalDate.parse(dateStr, formatter);
+            LocalDate today = LocalDate.now();
 
-            if (parsedDate.isAfter(LocalDate.now())) {
+            if (parsedDate.isAfter(today)) {
                 logger.error("Date cannot be in future: {}", dateStr);
                 throw new CryptoAggregatorException("REQUEST.03");
+            }
+
+            LocalDate oneYearAgo = today.minusYears(1);
+            if (parsedDate.isBefore(oneYearAgo)) {
+                logger.error("Date cannot be more than one year in the past: {}", dateStr);
+                throw new CryptoAggregatorException("REQUEST.06");
             }
 
             return true;
@@ -112,10 +118,10 @@ public class Utilities {
      * @param assets List of Asset objects
      * @return Map with coin symbols as keys and their prices as values
      */
-    public Map<String, Object> buildOutput(List<Asset> assets) {
+    public Map<String, Object> buildCurrentPricesOutput(List<Asset> assets) {
         Map<String, Object> output = new LinkedHashMap<>();
         for (Asset asset : assets) {
-            output.put(asset.getCoinSymbol(), asset.getPrice());
+            output.put(asset.getID(), asset.getPrice());
         }
         return output;
     }
@@ -129,9 +135,26 @@ public class Utilities {
      * @param asset An Asset object
      * @return Map with coin symbols as keys and their prices as values
      */
-    public Map<String, Object> buildSingleOutput(Asset asset) {
+    public Map<String, Object> buildPastPriceOutput(Asset asset) {
         Map<String, Object> output = new LinkedHashMap<>();
         output.put(asset.getID(), asset.getPrice());
+        return output;
+    }
+
+    /**
+     * This method builds a LinkedHashMap that auto-resolves to JSON format when returned as a response, in the format:
+     * {{
+     * "coin_symbol": "price"
+     * }}
+     *
+     * @param assets List of Asset objects
+     * @return Map with coin symbols as keys and their prices as values
+     */
+    public Map<String, Object> buildPriceHistoryOutput(List<Asset> assets) {
+        Map<String, Object> output = new LinkedHashMap<>();
+        for (Asset asset : assets) {
+            output.put(String.valueOf(asset.getTimestamp()), asset.getPrice());
+        }
         return output;
     }
 

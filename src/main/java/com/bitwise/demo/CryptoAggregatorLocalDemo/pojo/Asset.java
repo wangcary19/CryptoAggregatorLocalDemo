@@ -24,20 +24,8 @@ public class Asset {
     @JsonProperty("id")
     public String id;
 
-    @JsonProperty("coin_symbol")
-    public String coinSymbol;
-
     @JsonProperty("usd")
     public float price; // Price of asset, in USD
-
-    @JsonProperty("usd_market_cap")
-    public float marketCap; // Market cap of asset, in USD
-
-    @JsonProperty("usd_24h_vol")
-    public float volume; // 24h trading volume of asset, in USD
-
-    @JsonProperty("usd_24h_change")
-    public float change; // 24h price change of asset, in USD
 
     @JsonProperty("last_updated_at")
     public long timestamp; // Last updated timestamp of asset, in Unix epoch format, which is implemented as a long in Java
@@ -48,11 +36,7 @@ public class Asset {
 
     public Asset(String id, String coinSymbol, float price, float usd_market_cap, float volume, float change, long timestamp) {
         this.id = id;
-        this.coinSymbol = coinSymbol;
         this.price = price;
-        this.marketCap = usd_market_cap;
-        this.volume = volume;
-        this.change = change;
         this.timestamp = timestamp;
     }
 
@@ -64,44 +48,12 @@ public class Asset {
         this.id = id;
     }
 
-    public String getCoinSymbol() {
-        return coinSymbol;
-    }
-
-    public void setCoinSymbol(String coinSymbol) {
-        this.coinSymbol = coinSymbol;
-    }
-
     public float getPrice() {
         return price;
     }
 
     public void setPrice(float price) {
         this.price = price;
-    }
-
-    public float getMarketCap() {
-        return marketCap;
-    }
-
-    public void setMarketCap(float marketCap) {
-        this.marketCap = marketCap;
-    }
-
-    public float getVolume() {
-        return volume;
-    }
-
-    public void setVolume(float volume) {
-        this.volume = volume;
-    }
-
-    public float getChange() {
-        return change;
-    }
-
-    public void setChange(float change) {
-        this.change = change;
     }
 
     public long getTimestamp() {

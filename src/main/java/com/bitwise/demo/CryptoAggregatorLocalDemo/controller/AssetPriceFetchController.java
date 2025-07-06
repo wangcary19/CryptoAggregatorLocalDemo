@@ -4,7 +4,6 @@ import com.bitwise.demo.CryptoAggregatorLocalDemo.handler.CryptoAggregatorExcept
 import com.bitwise.demo.CryptoAggregatorLocalDemo.pojo.Asset;
 import com.bitwise.demo.CryptoAggregatorLocalDemo.service.AssetPriceFetchService;
 import com.bitwise.demo.CryptoAggregatorLocalDemo.utility.Utilities;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +28,7 @@ public class AssetPriceFetchController {
         this.tools = tools; // Dependency injection via constructor for the utility class
         this.apfs = apfs; // Dependency injection via constructor for the service class
     }
+
 
     //TODO: Currently, this method only supports querying by ID, i.e. the full name of the coin.
     // To enable more robust service, a parameter resolver should be implemented in the service class.
@@ -58,8 +58,9 @@ public class AssetPriceFetchController {
         List<Asset> listOfAssets = apfs.parseResponseForCurrentPrices(response.getBody());
 
         // 6: Assemble the output
-        return tools.buildOutput(listOfAssets);
+        return tools.buildCurrentPricesOutput(listOfAssets);
     }
+
 
     //TODO: Currently, this method only supports querying for prices in USD.  Add another path variable to support other currencies.
     @GetMapping("/past-price/{id}/{date}")
@@ -82,17 +83,17 @@ public class AssetPriceFetchController {
 
         // 3a: Check if the date is already in the cache, if so, return the cached data
         long unixTime = tools.convertToUnixTime(date);
-        if (apfs.checkCacheForAsset(unixTime) == null) {
+        if (apfs.checkCacheForAsset(id, unixTime) == null) {
             logger.info("Data not in cache, proceeding with API call");
         }
         else {
             logger.info("Cache hit on {}", date);
-            Asset cachedAsset = apfs.checkCacheForAsset(unixTime);
-            return tools.buildSingleOutput(cachedAsset);
+            Asset cachedAsset = apfs.checkCacheForAsset(id, unixTime);
+            return tools.buildPastPriceOutput(cachedAsset);
         }
 
-        // 3b: Build query URL for historical data
-        String queryURL = apfs.assembleQueryURLforHistoricalPrice(id, date);
+        // 3b: Build query URL for past price
+        String queryURL = apfs.assembleQueryURLforPastPrice(id, date);
         logger.info("Assembled historical query URL: {}", queryURL);
 
         // 4: Make API call
@@ -104,18 +105,54 @@ public class AssetPriceFetchController {
             logger.error("Failed to fetch historical price data");
             throw new CryptoAggregatorException("ALPHA.03");
         }
+        // Debug: the response body can be large, so it's commented out for performance
         //logger.info("Received response from upstream API for fetching historical price: {}", response.getBody());
 
         Asset asset = apfs.parseResponseForPastPrice(response.getBody(), date);
 
-        return tools.buildSingleOutput(asset);
+        return tools.buildPastPriceOutput(asset);
     }
 
-    //@GetMapping("/")
+
+    @GetMapping("/history/{id}/{fromDate}/{toDate}")
+    public Object getPriceHistory(@PathVariable String id, @PathVariable String fromDate, @PathVariable String toDate) throws CryptoAggregatorException {
+        // 1: Validate asset ID
+        if (id == null || id.isEmpty()) {
+            throw new CryptoAggregatorException("REQUEST.01");
+        }
+        if (!tools.isValidAssetId(id)) {
+            throw new CryptoAggregatorException("REQUEST.02");
+        }
+
+        // 2: Validate date formats
+        if (fromDate == null || fromDate.isEmpty() || toDate == null || toDate.isEmpty()) {
+            throw new CryptoAggregatorException("REQUEST.03");
+        }
+        if (!tools.isValidDate(fromDate) || !tools.isValidDate(toDate)) {
+            throw new CryptoAggregatorException("REQUEST.04");
+        }
 
 
 
+        // 3: Build query URL for historical data
+        String queryURL = apfs.assembleQueryURLforPriceHistory(id, String.valueOf(tools.convertToUnixTime(fromDate)), String.valueOf(tools.convertToUnixTime(toDate)));
+        logger.info("Assembled historical query URL for price history: {}", queryURL);
 
+        // 4: Make API call
+        RestTemplate rt = new RestTemplate();
+        ResponseEntity<String> response = rt.getForEntity(queryURL, String.class);
 
+        // 5: Validate response
+        if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null || response.getBody().isEmpty()) {
+            logger.error("Failed to fetch price history data");
+            throw new CryptoAggregatorException("ALPHA.03");
+        }
+        // Debug: the response body can be large, so it's commented out for performance
+        //logger.info("Received response from upstream API for fetching price history: {}", response.getBody());
 
+        // 6: Parse and return the response
+        List<Asset> assetHistory = apfs.parseResponseForPriceHistory(response.getBody());
+
+        return tools.buildPriceHistoryOutput(assetHistory);
+    }
 }

@@ -12,6 +12,13 @@ import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.constants.StaticConstants.baseURLforCurrentPrices;
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.constants.StaticConstants.baseURLforPastPrice;
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.constants.StaticConstants.baseURLforPriceHistory;
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.constants.StaticConstants.apiKeyParameter;
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.constants.StaticConstants.referenceCurrencyParameter;
+
+import java.io.IOException;
 import java.util.*;
 
 @Service
@@ -20,12 +27,6 @@ public class AssetPriceFetchService {
     private final Logger logger = LoggerFactory.getLogger(AssetPriceFetchService.class);
 
     private final com.bitwise.demo.CryptoAggregatorLocalDemo.utility.Utilities tools;
-
-    private final String baseURLforCurrentPrices = "https://api.coingecko.com/api/v3/simple/price?";
-    private final String baseURLforHistoricalPrice = "https://api.coingecko.com/api/v3/coins/";
-    private final String apiKeyParameter = "x_cg_demo_api_key=CG-nXwsM6A5wv77DZGvppaLqJi5";
-    private final String referenceCurrencyParameter = "&vs_currencies=usd"; // Default to USD, can be changed later
-
     @Autowired // Constructor-based dependency injection for the utility class
     public AssetPriceFetchService(com.bitwise.demo.CryptoAggregatorLocalDemo.utility.Utilities tools) {
         this.tools = tools;
@@ -72,44 +73,65 @@ public class AssetPriceFetchService {
      * @return The complete query URL as a String.
      * @throws CryptoAggregatorException If an invalid asset ID is requested.
      */
-    public String assembleQueryURLforHistoricalPrice(String requestedCurrency, String date) throws CryptoAggregatorException {
-        StringBuffer newURL = new StringBuffer(baseURLforHistoricalPrice + requestedCurrency + "/history?date=" + date + "&" + apiKeyParameter);
+    public String assembleQueryURLforPastPrice(String requestedCurrency, String date) throws CryptoAggregatorException {
+        StringBuffer newURL = new StringBuffer(baseURLforPastPrice + requestedCurrency + "/history?date=" + date + "&" + apiKeyParameter);
         return newURL.toString();
     }
 
     /**
-     * This method parses the response from the upstream API and converts it into a list of Asset objects.
+     * This method assembles the query URL for the upstream API for the historical price history of a user-requested ID.
      *
-     * @param responseBody The JSON response body from the upstream API.
-     * @return A list of Asset objects parsed from the response.
-     * @throws CryptoAggregatorException If there is an error during parsing.
+     * @param requestedCurrency The requested currency symbol.
+     * @param fromDate          The start date for the price history in Unix timestamp format.
+     * @param toDate            The end date for the price history in Unix timestamp format.
+     * @return The complete query URL as a String.
+     * @throws CryptoAggregatorException If an invalid asset ID is requested.
      */
-    public List<Asset> parseResponseForCurrentPrices(String responseBody) throws CryptoAggregatorException {
-        ObjectMapper mapper = new ObjectMapper();
+    public String assembleQueryURLforPriceHistory(String requestedCurrency, String fromDate, String toDate) throws CryptoAggregatorException {
+        StringBuffer newURL = new StringBuffer(baseURLforPriceHistory + requestedCurrency + "/market_chart/range?vs_currency=usd&from=" + fromDate + "&to=" + toDate + "&" + apiKeyParameter);
+        return newURL.toString();
+    }
+
+    /**
+     * Parses the JSON response from CoinGecko's current prices API endpoint
+     * and converts it into a list of Asset objects.
+     *
+     * @param response The JSON response string from the API
+     * @return A list of Asset objects populated with id and price data
+     * @throws CryptoAggregatorException if JSON parsing fails
+     */
+    public List<Asset> parseResponseForCurrentPrices(String response) throws CryptoAggregatorException {
+        ObjectMapper objectMapper = new ObjectMapper();
         List<Asset> assets = new ArrayList<>();
 
         try {
-            Map<String, Map<String, Object>> result = mapper.readValue(
-                    responseBody,
-                    mapper.getTypeFactory().constructMapType(Map.class, String.class, Map.class)
-            );
+            JsonNode rootNode = objectMapper.readTree(response);
 
-            for (Map.Entry<String, Map<String, Object>> entry : result.entrySet()) {
-                String currency = entry.getKey();
-                Map<String, Object> valueMap = entry.getValue();
-                Map<String, Object> assetMap = new HashMap<>();
-                assetMap.put("coin_symbol", currency);
-                assetMap.putAll(valueMap);
+            // Iterate through each cryptocurrency in the response
+            Iterator<Map.Entry<String, JsonNode>> coins = rootNode.fields();
+            while (coins.hasNext()) {
+                Map.Entry<String, JsonNode> coinEntry = coins.next();
+                String coinId = coinEntry.getKey();  // This is "bitcoin", "ethereum", etc.
+                JsonNode coinData = coinEntry.getValue();
 
-                Asset asset = mapper.convertValue(assetMap, Asset.class);
+                // Extract USD price
+                if (coinData.has("usd")) {
+                    float usdPrice = (float) coinData.get("usd").asDouble();
 
-                asset.setTimestamp(tools.getCurrentUnixTime()); // Set current timestamp as key for caching
+                    // Create and populate a new Asset object
+                    Asset asset = new Asset();
 
-                assets.add(cacheAsset(asset)); // Cache the asset before adding to the list
+                    asset.setID(coinId);
+                    asset.setPrice(usdPrice);
+                    asset.setTimestamp(System.currentTimeMillis() / 1000); // Current time in Unix epoch
+
+                    assets.add(cacheAsset(asset));
+                }
             }
+
             return assets;
-        } catch (JsonProcessingException e) {
-            logger.error("Error parsing response: {}", e.getMessage());
+        } catch (IOException e) {
+            logger.error("Failed to parse current prices response: {}", e.getMessage());
             throw new CryptoAggregatorException("PROCESS.01");
         }
     }
@@ -121,7 +143,6 @@ public class AssetPriceFetchService {
      * @return A map with asset ID as key and its price as value.
      * @throws CryptoAggregatorException If there is an error during parsing.
      */
-    @CachePut(value = "ASSETS", key = "#result.getTimestamp()")
     public Asset parseResponseForPastPrice(String responseBody, String dd_mm_yyyy) throws CryptoAggregatorException {
         ObjectMapper mapper = new ObjectMapper();
         Asset asset = new Asset();
@@ -144,15 +165,59 @@ public class AssetPriceFetchService {
         }
     }
 
-    @CachePut(value = "ASSETS", key = "#result.getTimestamp()")
+    /**
+     * This method parses the price history response from the upstream API and returns a list of Asset objects.
+     *
+     * @param responseBody The JSON response body from the upstream API for price history.
+     * @return A list of Asset objects parsed from the response.
+     * @throws CryptoAggregatorException If there is an error during parsing.
+     */
+    public List<Asset> parseResponseForPriceHistory(String responseBody) throws CryptoAggregatorException {
+        ObjectMapper mapper = new ObjectMapper();
+        List<Asset> assets = new ArrayList<>();
+
+        try {
+            JsonNode rootNode = mapper.readTree(responseBody);
+            JsonNode pricesNode = rootNode.get("prices");
+
+            if (pricesNode.isArray()) {
+                for (JsonNode priceNode : pricesNode) {
+                    Asset asset = new Asset();
+                    asset.setTimestamp(priceNode.get(0).asLong()); // Timestamp in milliseconds
+                    asset.setPrice(priceNode.get(1).floatValue()); // Price in USD
+
+                    assets.add(cacheAsset(asset)); // Cache the asset before adding to the list
+                }
+            }
+            return assets;
+        } catch (JsonProcessingException e) {
+            logger.error("Error parsing response: {}", e.getMessage());
+            throw new CryptoAggregatorException("PROCESS.01");
+        }
+    }
+
+    /**
+     * This method intercepts and caches the Asset object using its timestamp as the key, if there are one or more Asset objects.
+     *
+     * @param asset The Asset object to cache.
+     * @return The cached Asset object.
+     */
+    @CachePut(value = "ASSETS", key = "#result.getID() + #result.getTimestamp()")
     public Asset cacheAsset(Asset asset) {
-        logger.debug("Attemping to cache asset: {}", asset.getTimestamp());
+        logger.debug("Attempting to cache asset: {}", asset.getTimestamp());
         return asset;
     }
 
-    @Cacheable(value = "ASSETS", key = "#timestamp", unless = "#result == null")
-    public Asset checkCacheForAsset(Long timestamp) {
-        logger.debug("Cache miss for asset {} at timestamp {}", timestamp);
+    /**
+     * This method checks the cache for an Asset object using its timestamp as the key.
+     * If the asset is not found in the cache, it returns null.
+     *
+     * @param timestamp The timestamp to check in the cache.
+     * @return The cached Asset object or null if not found.
+     */
+    @Cacheable(value = "ASSETS", key = "#id + #timestamp", unless = "#result == null")
+    public Asset checkCacheForAsset(String id, Long timestamp) {
+        logger.debug("Cache miss for {} asset at timestamp {}", id, timestamp);
         return null; // Returns null on cache miss
     }
 }

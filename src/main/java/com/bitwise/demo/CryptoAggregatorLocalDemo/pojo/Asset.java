@@ -19,8 +19,13 @@ package com.bitwise.demo.CryptoAggregatorLocalDemo.pojo;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
 
+@Entity
 public class Asset {
+
     @JsonProperty("id")
     public String id;
 
@@ -30,11 +35,14 @@ public class Asset {
     @JsonProperty("last_updated_at")
     public long timestamp; // Last updated timestamp of asset, in Unix epoch format, which is implemented as a long in Java
 
+    @Id
+    public String compositeKey; // Composite key for the asset, which is matches the Redis combination of the asset ID and the timestamp
+
     public Asset() { // No-args constructor for Jackson to use
         // This constructor is required for Jackson to deserialize JSON into this class.
     }
 
-    public Asset(String id, String coinSymbol, float price, float usd_market_cap, float volume, float change, long timestamp) {
+    public Asset(String id, float price, long timestamp) {
         this.id = id;
         this.price = price;
         this.timestamp = timestamp;
@@ -46,6 +54,9 @@ public class Asset {
 
     public void setID(String id) {
         this.id = id;
+        if (this.timestamp > 0) {
+            generateCompositeKey();
+        }
     }
 
     public float getPrice() {
@@ -62,5 +73,14 @@ public class Asset {
 
     public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
+        if (this.id != null && !this.id.isEmpty()) {
+            generateCompositeKey();
+        }
     }
+
+    public String getCompositeKey() {return compositeKey;}
+
+    public void setCompositeKey(String compositeKey) {this.compositeKey = compositeKey;}
+
+    public void generateCompositeKey() {this.compositeKey = id + "_" + timestamp;}
 }

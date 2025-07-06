@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 //@Component
-public class RateLimitingFilter implements Filter {
+public class RateLimiterFilter implements Filter {
 
     // Map to store request counts per IP address
     private final Map<String, AtomicInteger> requestCountsPerIpAddress = new ConcurrentHashMap<>();

@@ -54,7 +54,8 @@ public class Utilities {
                     validAssetIds.add(coin.getCoinID().toLowerCase());
                 }
 
-                logger.info("Successfully fetched {} valid asset IDs from upstream API", validAssetIds.toString());
+                // Uncomment to view the full list of valid asset IDs; commented out as the response body is large
+                //logger.info("Successfully fetched {} valid asset IDs from upstream API", validAssetIds.toString());
             } else {
                 logger.error("Failed to fetch valid asset IDs - null response from API");
                 throw new CryptoAggregatorException("ALPHA.02");

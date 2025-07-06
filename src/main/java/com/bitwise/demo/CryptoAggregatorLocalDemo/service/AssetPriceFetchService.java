@@ -2,6 +2,7 @@ package com.bitwise.demo.CryptoAggregatorLocalDemo.service;
 
 import com.bitwise.demo.CryptoAggregatorLocalDemo.handler.CryptoAggregatorException;
 import com.bitwise.demo.CryptoAggregatorLocalDemo.pojo.Asset;
+import com.bitwise.demo.CryptoAggregatorLocalDemo.repository.AssetRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,9 +28,11 @@ public class AssetPriceFetchService {
     private final Logger logger = LoggerFactory.getLogger(AssetPriceFetchService.class);
 
     private final com.bitwise.demo.CryptoAggregatorLocalDemo.utility.Utilities tools;
+    private final AssetRepository db;
     @Autowired // Constructor-based dependency injection for the utility class
-    public AssetPriceFetchService(com.bitwise.demo.CryptoAggregatorLocalDemo.utility.Utilities tools) {
+    public AssetPriceFetchService(com.bitwise.demo.CryptoAggregatorLocalDemo.utility.Utilities tools, AssetRepository assetRepository) {
         this.tools = tools;
+        this.db = assetRepository;
     }
 
     /**
@@ -125,7 +128,8 @@ public class AssetPriceFetchService {
                     asset.setPrice(usdPrice);
                     asset.setTimestamp(System.currentTimeMillis() / 1000); // Current time in Unix epoch
 
-                    assets.add(cacheAsset(asset));
+                    saveAsset(asset); // Save the asset to the database
+                    assets.add(cacheAsset(asset)); // Cache the asset before adding to the list
                 }
             }
 
@@ -158,6 +162,7 @@ public class AssetPriceFetchService {
 
             asset.setTimestamp(tools.convertToUnixTime(dd_mm_yyyy)); // Set key as historical date for cache hashing
 
+            saveAsset(asset);
             return cacheAsset(asset);
         } catch (JsonProcessingException e) {
             logger.error("Error parsing response: {}", e.getMessage());
@@ -172,7 +177,7 @@ public class AssetPriceFetchService {
      * @return A list of Asset objects parsed from the response.
      * @throws CryptoAggregatorException If there is an error during parsing.
      */
-    public List<Asset> parseResponseForPriceHistory(String responseBody) throws CryptoAggregatorException {
+    public List<Asset> parseResponseForPriceHistory(String responseBody, String coinID) throws CryptoAggregatorException {
         ObjectMapper mapper = new ObjectMapper();
         List<Asset> assets = new ArrayList<>();
 
@@ -183,9 +188,11 @@ public class AssetPriceFetchService {
             if (pricesNode.isArray()) {
                 for (JsonNode priceNode : pricesNode) {
                     Asset asset = new Asset();
+                    asset.setID(coinID);
                     asset.setTimestamp(priceNode.get(0).asLong()); // Timestamp in milliseconds
                     asset.setPrice(priceNode.get(1).floatValue()); // Price in USD
 
+                    saveAsset(asset);
                     assets.add(cacheAsset(asset)); // Cache the asset before adding to the list
                 }
             }
@@ -202,7 +209,7 @@ public class AssetPriceFetchService {
      * @param asset The Asset object to cache.
      * @return The cached Asset object.
      */
-    @CachePut(value = "ASSETS", key = "#result.getID() + #result.getTimestamp()")
+    @CachePut(value = "ASSETS", key = "#result.getID().concat('_').concat(#result.getTimestamp())")
     public Asset cacheAsset(Asset asset) {
         logger.debug("Attempting to cache asset: {}", asset.getTimestamp());
         return asset;
@@ -215,9 +222,44 @@ public class AssetPriceFetchService {
      * @param timestamp The timestamp to check in the cache.
      * @return The cached Asset object or null if not found.
      */
-    @Cacheable(value = "ASSETS", key = "#id + #timestamp", unless = "#result == null")
+    @Cacheable(value = "ASSETS", key = "#id.concat('_').concat(#timestamp)", unless = "#result == null")
     public Asset checkCacheForAsset(String id, Long timestamp) {
         logger.debug("Cache miss for {} asset at timestamp {}", id, timestamp);
         return null; // Returns null on cache miss
+    }
+
+    /**
+     * This method retrieves a list of Asset objects from the database using a composite key.
+     * The composite key is formed by concatenating the asset ID and timestamp with an underscore.
+     *
+     * @param id        The asset ID.
+     * @param timestamp The timestamp in Unix epoch format.
+     * @return A list of Asset objects matching the composite key.
+     */
+    public List<Asset> retrieveAssets(String id, long timestamp) {
+        String compositeKey = id + "_" + timestamp;
+        List<Asset> listOfAssets = db.findByCompositeKey(compositeKey);
+        if (listOfAssets == null || listOfAssets.isEmpty()) {
+            logger.info("No assets found for composite key: {}", compositeKey);
+            return null;
+        } else {
+            logger.info("Found assets for composite key {}", compositeKey);
+            return listOfAssets;
+        }
+    }
+
+    /**
+     * This method adds an Asset object to the database if it is not already present.
+     * It checks for existing assets using a composite key formed by the asset ID and timestamp.
+     *
+     * @param asset The Asset object to add.
+     */
+    public void saveAsset(Asset asset) {
+        String compositeKey = asset.getCompositeKey();
+        List<Asset> existingAssets = db.findByCompositeKey(compositeKey);
+        if (existingAssets == null || existingAssets.isEmpty()) {
+            db.save(asset);
+            logger.info("Saved asset to database: {}", asset.getCompositeKey());
+        }
     }
 }

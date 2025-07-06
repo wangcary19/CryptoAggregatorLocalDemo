@@ -54,7 +54,7 @@ public class AssetPriceFetchController {
             throw new CryptoAggregatorException("ALPHA.03");
         }
 
-        // 5: Parse the response
+        // 5: Parse the response (this parse function will cache the data in Redis and save to the database)
         List<Asset> listOfAssets = apfs.parseResponseForCurrentPrices(response.getBody());
 
         // 6: Assemble the output
@@ -92,9 +92,17 @@ public class AssetPriceFetchController {
             return tools.buildPastPriceOutput(cachedAsset);
         }
 
-        // 3b: Build query URL for past price
+        // 3b: Check if the date is already in the database, if so, return the data from the database
+        if (apfs.retrieveAssets(id, unixTime) != null && !apfs.retrieveAssets(id, unixTime).isEmpty()) {
+            logger.info("Database hit on {}", date);
+            Asset cachedAsset = apfs.retrieveAssets(id, unixTime).getFirst();
+            return tools.buildPastPriceOutput(cachedAsset);
+        }
+        logger.info("Data not in database, proceeding with API call");
+
+        // 3c: Build query URL for past price
         String queryURL = apfs.assembleQueryURLforPastPrice(id, date);
-        logger.info("Assembled historical query URL: {}", queryURL);
+        logger.info("Assembled query URL: {}", queryURL);
 
         // 4: Make API call
         RestTemplate rt = new RestTemplate();
@@ -108,6 +116,7 @@ public class AssetPriceFetchController {
         // Debug: the response body can be large, so it's commented out for performance
         //logger.info("Received response from upstream API for fetching historical price: {}", response.getBody());
 
+        // 6: Parse the response (this parse function will cache the data in Redis and save to the database)
         Asset asset = apfs.parseResponseForPastPrice(response.getBody(), date);
 
         return tools.buildPastPriceOutput(asset);
@@ -132,8 +141,6 @@ public class AssetPriceFetchController {
             throw new CryptoAggregatorException("REQUEST.04");
         }
 
-
-
         // 3: Build query URL for historical data
         String queryURL = apfs.assembleQueryURLforPriceHistory(id, String.valueOf(tools.convertToUnixTime(fromDate)), String.valueOf(tools.convertToUnixTime(toDate)));
         logger.info("Assembled historical query URL for price history: {}", queryURL);
@@ -150,8 +157,8 @@ public class AssetPriceFetchController {
         // Debug: the response body can be large, so it's commented out for performance
         //logger.info("Received response from upstream API for fetching price history: {}", response.getBody());
 
-        // 6: Parse and return the response
-        List<Asset> assetHistory = apfs.parseResponseForPriceHistory(response.getBody());
+        // 6: Parse the response (this parse function will cache the data in Redis and save to the database)
+        List<Asset> assetHistory = apfs.parseResponseForPriceHistory(response.getBody(), id);
 
         return tools.buildPriceHistoryOutput(assetHistory);
     }

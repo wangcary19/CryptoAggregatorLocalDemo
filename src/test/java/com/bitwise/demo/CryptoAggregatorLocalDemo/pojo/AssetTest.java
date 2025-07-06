@@ -34,11 +34,7 @@ class AssetTest {
     void testParameterizedConstructor() {
         Asset asset = new Asset(
                 "bitcoin",
-                "btc",
                 67187.34f,
-                1317802988326.25f,
-                31260929299.52f,
-                3.6372f,
                 1711356300L
         );
 

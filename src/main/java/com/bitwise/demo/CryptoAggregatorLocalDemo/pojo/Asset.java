@@ -21,6 +21,9 @@ package com.bitwise.demo.CryptoAggregatorLocalDemo.pojo;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Asset {
+    @JsonProperty("id")
+    public String id;
+
     @JsonProperty("coin_symbol")
     public String coinSymbol;
 
@@ -43,12 +46,22 @@ public class Asset {
         // This constructor is required for Jackson to deserialize JSON into this class.
     }
 
-    public Asset(float price, float usd_market_cap, float volume, float change, long timestamp) {
+    public Asset(String id, String coinSymbol, float price, float usd_market_cap, float volume, float change, long timestamp) {
+        this.id = id;
+        this.coinSymbol = coinSymbol;
         this.price = price;
         this.marketCap = usd_market_cap;
         this.volume = volume;
         this.change = change;
         this.timestamp = timestamp;
+    }
+
+    public String getID() {
+        return id;
+    }
+
+    public void setID(String id) {
+        this.id = id;
     }
 
     public String getCoinSymbol() {

@@ -19,14 +19,25 @@ class AssetTest {
     }
 
     @Test
-    void testDefaultConstructor() {
-        assertNotNull(new Asset());
+    void testIDGetterSetter() {
+        asset.setID("bitcoin");
+        assertEquals("bitcoin", asset.getID());
     }
 
     @Test
     void testParameterizedConstructor() {
-        Asset asset = new Asset(67187.34f, 1317802988326.25f, 31260929299.52f, 3.6372f, 1711356300L);
+        Asset asset = new Asset(
+                "bitcoin",
+                "btc",
+                67187.34f,
+                1317802988326.25f,
+                31260929299.52f,
+                3.6372f,
+                1711356300L
+        );
 
+        assertEquals("bitcoin", asset.getID());
+        assertEquals("btc", asset.getCoinSymbol());
         assertEquals(67187.34f, asset.getPrice(), DELTA);
         assertEquals(1317802988326.25f, asset.getMarketCap(), DELTA);
         assertEquals(31260929299.52f, asset.getVolume(), DELTA);

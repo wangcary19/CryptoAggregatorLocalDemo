@@ -10,14 +10,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.component.Constants.RATE_LIMITER_LIMIT;
+
 //@Component
 public class RateLimiterFilter implements Filter {
 
     // Map to store request counts per IP address
     private final Map<String, AtomicInteger> requestCountsPerIpAddress = new ConcurrentHashMap<>();
-
-    // Maximum requests allowed per minute
-    private static final int MAX_REQUESTS_PER_MINUTE = 60; // Allow one request per second
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -35,7 +34,7 @@ public class RateLimiterFilter implements Filter {
         int requests = requestCount.incrementAndGet();
 
         // Check if the request limit has been exceeded
-        if (requests > MAX_REQUESTS_PER_MINUTE) {
+        if (requests > RATE_LIMITER_LIMIT) {
             httpServletResponse.setStatus(429); // Too Many Requests
             httpServletResponse.getWriter().write("Exceeded the allowed number of requests per minute.  Please wait and try again later.");
             return;

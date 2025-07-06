@@ -14,7 +14,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.component.Constants.PREFETCH_LIMIT;
 
 @RestController
 public class AssetPriceFetchController {
@@ -28,6 +32,10 @@ public class AssetPriceFetchController {
         this.tools = tools; // Dependency injection via constructor for the utility class
         this.apfs = apfs; // Dependency injection via constructor for the service class
     }
+
+    // Global prefetchLimit: 30 days ago
+    private final LocalDate prefetchLimit = LocalDate.now().minusDays(PREFETCH_LIMIT);
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
 
     //TODO: Currently, this method only supports querying by ID, i.e. the full name of the coin.
@@ -84,7 +92,7 @@ public class AssetPriceFetchController {
         // 3a: Check if the date is already in the cache, if so, return the cached data
         long unixTime = tools.convertToUnixTime(date);
         if (apfs.checkCacheForAsset(id, unixTime) == null) {
-            logger.info("Data not in cache, proceeding with API call");
+            logger.info("Data not in cache, proceeding to check database");
         }
         else {
             logger.info("Cache hit on {}", date);
@@ -141,7 +149,15 @@ public class AssetPriceFetchController {
             throw new CryptoAggregatorException("REQUEST.04");
         }
 
-        // 3: Build query URL for historical data
+        // 3a: If fromDate is before prefetchLimit, serve from DB
+        LocalDate from = LocalDate.parse(fromDate, formatter);
+        if (from.isAfter(prefetchLimit)) {
+            logger.info("fromDate {} is before prefetchLimit {}, serving from DB if possible", fromDate, prefetchLimit.format(formatter));
+            List<Asset> assetHistory = apfs.retrieveAssetsForDateRange(id, fromDate, toDate);
+            return tools.buildPriceHistoryOutput(assetHistory);
+        }
+
+        // 3c: Build query URL for historical data
         String queryURL = apfs.assembleQueryURLforPriceHistory(id, String.valueOf(tools.convertToUnixTime(fromDate)), String.valueOf(tools.convertToUnixTime(toDate)));
         logger.info("Assembled historical query URL for price history: {}", queryURL);
 

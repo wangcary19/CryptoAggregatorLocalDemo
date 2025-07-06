@@ -21,4 +21,8 @@ public interface AssetRepository extends JpaRepository<Asset, String> {
             @Param("startTime") long startTime,
             @Param("endTime") long endTime
     );
+
+    // Find by ID and timestamp range
+    @Query("SELECT a FROM Asset a WHERE a.id = :id AND a.timestamp BETWEEN :fromTimestamp AND :toTimestamp")
+    List<Asset> findByIdAndTimestampBetween(@Param("id") String id, @Param("fromTimestamp") long fromTimestamp, @Param("toTimestamp") long toTimestamp);
 }

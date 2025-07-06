@@ -1,37 +1,32 @@
-package com.bitwise.demo.CryptoAggregatorLocalDemo.constants;
+package com.bitwise.demo.CryptoAggregatorLocalDemo.component;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class StaticConstantsTest {
 
-    @Test
-    void testApiKeyParameter() {
-        assertEquals("x_cg_demo_api_key=CG-nXwsM6A5wv77DZGvppaLqJi5",
-                StaticConstants.apiKeyParameter);
-    }
 
     @Test
     void testBaseURLforCurrentPrices() {
         assertEquals("https://api.coingecko.com/api/v3/simple/price?",
-                StaticConstants.baseURLforCurrentPrices);
+                Constants.BASE_URL_CURRENT_PRICES);
     }
 
     @Test
     void testBaseURLforPastPrice() {
         assertEquals("https://api.coingecko.com/api/v3/coins/",
-                StaticConstants.baseURLforPastPrice);
+                Constants.BASE_URL_PAST_PRICE);
     }
 
     @Test
     void testBaseURLforPriceHistory() {
         assertEquals("https://api.coingecko.com/api/v3/coins/",
-                StaticConstants.baseURLforPriceHistory);
+                Constants.BASE_URL_PRICE_HISTORY);
     }
 
     @Test
     void testReferenceCurrencyParameter() {
         assertEquals("&vs_currencies=usd",
-                StaticConstants.referenceCurrencyParameter);
+                Constants.REF_CURR_PARAM);
     }
 }

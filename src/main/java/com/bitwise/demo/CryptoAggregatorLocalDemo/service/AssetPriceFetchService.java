@@ -13,11 +13,11 @@ import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-import static com.bitwise.demo.CryptoAggregatorLocalDemo.constants.StaticConstants.baseURLforCurrentPrices;
-import static com.bitwise.demo.CryptoAggregatorLocalDemo.constants.StaticConstants.baseURLforPastPrice;
-import static com.bitwise.demo.CryptoAggregatorLocalDemo.constants.StaticConstants.baseURLforPriceHistory;
-import static com.bitwise.demo.CryptoAggregatorLocalDemo.constants.StaticConstants.apiKeyParameter;
-import static com.bitwise.demo.CryptoAggregatorLocalDemo.constants.StaticConstants.referenceCurrencyParameter;
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.component.Constants.BASE_URL_CURRENT_PRICES;
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.component.Constants.BASE_URL_PAST_PRICE;
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.component.Constants.BASE_URL_PRICE_HISTORY;
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.component.Constants.API_KEY;
+import static com.bitwise.demo.CryptoAggregatorLocalDemo.component.Constants.REF_CURR_PARAM;
 
 import java.io.IOException;
 import java.util.*;
@@ -29,6 +29,7 @@ public class AssetPriceFetchService {
 
     private final com.bitwise.demo.CryptoAggregatorLocalDemo.utility.Utilities tools;
     private final AssetRepository db;
+
     @Autowired // Constructor-based dependency injection for the utility class
     public AssetPriceFetchService(com.bitwise.demo.CryptoAggregatorLocalDemo.utility.Utilities tools, AssetRepository assetRepository) {
         this.tools = tools;
@@ -44,7 +45,7 @@ public class AssetPriceFetchService {
      * @throws CryptoAggregatorException If an invalid asset ID is requested.
      */
     public String assembleQueryURLforCurrentPrices(String[] requestedCurrencies) {
-        StringBuffer newURL = new StringBuffer(baseURLforCurrentPrices + apiKeyParameter + referenceCurrencyParameter + "&ids=");
+        StringBuffer newURL = new StringBuffer(BASE_URL_CURRENT_PRICES + API_KEY + REF_CURR_PARAM + "&ids=");
         Set<String> added = new HashSet<>();
         boolean first = true;
 
@@ -77,7 +78,7 @@ public class AssetPriceFetchService {
      * @throws CryptoAggregatorException If an invalid asset ID is requested.
      */
     public String assembleQueryURLforPastPrice(String requestedCurrency, String date) throws CryptoAggregatorException {
-        StringBuffer newURL = new StringBuffer(baseURLforPastPrice + requestedCurrency + "/history?date=" + date + "&" + apiKeyParameter);
+        StringBuffer newURL = new StringBuffer(BASE_URL_PAST_PRICE + requestedCurrency + "/history?date=" + date + "&" + API_KEY);
         return newURL.toString();
     }
 
@@ -91,7 +92,7 @@ public class AssetPriceFetchService {
      * @throws CryptoAggregatorException If an invalid asset ID is requested.
      */
     public String assembleQueryURLforPriceHistory(String requestedCurrency, String fromDate, String toDate) throws CryptoAggregatorException {
-        StringBuffer newURL = new StringBuffer(baseURLforPriceHistory + requestedCurrency + "/market_chart/range?vs_currency=usd&from=" + fromDate + "&to=" + toDate + "&" + apiKeyParameter);
+        StringBuffer newURL = new StringBuffer(BASE_URL_PRICE_HISTORY + requestedCurrency + "/market_chart/range?vs_currency=usd&from=" + fromDate + "&to=" + toDate + "&" + API_KEY);
         return newURL.toString();
     }
 
@@ -189,7 +190,7 @@ public class AssetPriceFetchService {
                 for (JsonNode priceNode : pricesNode) {
                     Asset asset = new Asset();
                     asset.setID(coinID);
-                    asset.setTimestamp(priceNode.get(0).asLong()); // Timestamp in milliseconds
+                    asset.setTimestamp(priceNode.get(0).asLong() / 1000); // Convert ms to seconds
                     asset.setPrice(priceNode.get(1).floatValue()); // Price in USD
 
                     saveAsset(asset);
@@ -260,6 +261,37 @@ public class AssetPriceFetchService {
         if (existingAssets == null || existingAssets.isEmpty()) {
             db.save(asset);
             logger.info("Saved asset to database: {}", asset.getCompositeKey());
+        }
+    }
+
+    /**
+     * This method retrieves a list of Asset objects for a given asset ID within a specified date range.
+     * The date range is defined by fromDate and toDate in dd-MM-yyyy format.
+     *
+     * @param id       The asset ID.
+     * @param fromDate The start date in dd-MM-yyyy format.
+     * @param toDate   The end date in dd-MM-yyyy format.
+     * @return A list of Asset objects within the specified date range.
+     */
+    public List<Asset> retrieveAssetsForDateRange(String id, String fromDate, String toDate) {
+        try {
+            // Convert fromDate and toDate to Unix timestamps
+            long fromTimestamp = tools.convertToUnixTime(fromDate);
+            long toTimestamp = tools.convertToUnixTime(toDate);
+
+            // Query the database for assets within the date range
+            List<Asset> assets = db.findByIdAndTimestampBetween(id, fromTimestamp, toTimestamp);
+
+            if (assets == null || assets.isEmpty()) {
+                logger.info("No assets found for ID {} in the date range {} to {} in DB", id, fromDate, toDate);
+                return Collections.emptyList();
+            }
+
+            logger.info("Found {} assets for ID {} in the date range {} to {} in DB", assets.size(), id, fromDate, toDate);
+            return assets;
+        } catch (Exception e) {
+            logger.error("Error retrieving assets for ID {} in the date range {} to {}: {}", id, fromDate, toDate, e.getMessage());
+            throw new CryptoAggregatorException("DATABASE.01");
         }
     }
 }

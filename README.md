@@ -2,7 +2,7 @@
 
 Data is derived from the CoinGeckoAPI, which due to pricing restrictions, is only able to serve data from within the past 365 days.
 
-This project was written with the help of LLMs, with the human-written to AI-written split being approximately 70/30.
+This project was written with the help of LLMs, with the human-written to AI-written split in non-test classes being approximately 70/30.
 
 # Project Setup
 Clone the repository at:

@@ -176,15 +176,4 @@ public class Utilities {
             throw new CryptoAggregatorException("REQUEST.05");
         }
     }
-
-    /**
-     * Gets current Unix time rounded down to nearest 5-minute interval.
-     * Used for updating Assets with the lowest granularity recent time, required for cache hashing.
-     * @return Unix timestamp in seconds, rounded to nearest 5 minutes
-     */
-    public long getCurrentUnixTime() {
-        long currentTime = System.currentTimeMillis() / 1000L; // Current time in seconds
-        long fiveMinutes = 5 * 60; // 5 minutes in seconds
-        return currentTime - (currentTime % fiveMinutes); // Round down to nearest 5 minutes
-    }
 }

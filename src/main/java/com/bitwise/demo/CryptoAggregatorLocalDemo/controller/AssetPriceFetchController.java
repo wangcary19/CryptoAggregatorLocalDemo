@@ -26,6 +26,7 @@ public class AssetPriceFetchController {
     private final Logger logger = LoggerFactory.getLogger(AssetPriceFetchController.class);
     private final AssetPriceFetchService apfs; // Not to be confused with "Apple Proprietary File System"!
     private final Utilities tools;
+    private RestTemplate restTemplate;
 
     @Autowired
     public AssetPriceFetchController(AssetPriceFetchService apfs, Utilities tools) {
@@ -177,5 +178,10 @@ public class AssetPriceFetchController {
         List<Asset> assetHistory = apfs.parseResponseForPriceHistory(response.getBody(), id);
 
         return tools.buildPriceHistoryOutput(assetHistory);
+    }
+
+    // Add to AssetPriceFetchController.java
+    public void setRestTemplate(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
 }

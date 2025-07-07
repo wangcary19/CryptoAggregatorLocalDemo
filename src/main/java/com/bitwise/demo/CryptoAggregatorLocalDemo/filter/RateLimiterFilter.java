@@ -4,6 +4,7 @@ import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.Map;
@@ -12,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.bitwise.demo.CryptoAggregatorLocalDemo.component.Constants.RATE_LIMITER_LIMIT;
 
-//@Component
+@Component
 public class RateLimiterFilter implements Filter {
 
     // Map to store request counts per IP address

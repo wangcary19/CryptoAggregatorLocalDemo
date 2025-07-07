@@ -6,7 +6,9 @@ This project was written with the help of LLMs, with the human-written to AI-wri
 
 # Project Setup
 Clone the repository at:
-https://github.com/wangcary19/CryptoAggregatorLocalDemo 
+https://github.com/wangcary19/CryptoAggregatorLocalDemo
+
+Ensure also that Docker is installed, along with the latest image of Redis 8.0.2.
 
 ### Application Configuration
 Various settings are available in the *application.properties* file.  Configure the following before startup:
